@@ -1,0 +1,10 @@
+Flask
+Flask-SQLAlchemy
+SQLAlchemy
+psycopg2-binary
+PyJWT
+bcrypt
+python-dotenv
+Flask-Cors
+pandas
+openpyxl
