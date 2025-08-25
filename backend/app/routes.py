@@ -105,6 +105,30 @@ def get_skills(current_user):
     return jsonify([{"id": str(s.id), "name": s.name} for s in skills])
 
 
+# Find the existing get_all_claims function and replace it with this version
+@app.route("/api/admin/claims", methods=["GET"])
+@admin_required
+def get_all_claims(current_user):
+    claims = Claim.query.order_by(Claim.claim_id.desc()).all()
+    return jsonify(
+        [
+            {
+                "id": str(c.id),
+                "claim_id": c.claim_id,
+                "patient_name": c.patient_name,
+                "payer": c.payer,
+                "amount": str(c.amount) if c.amount else None,
+                "dos": (
+                    c.dos.strftime("%Y-%m-%d") if c.dos else None
+                ),  # Format date for readability
+                "status": c.status,
+                "assignee": c.assignee.name if c.assignee else "Unassigned",
+            }
+            for c in claims
+        ]
+    )
+
+
 @app.route("/api/admin/claims/upload-validate", methods=["POST"])
 @admin_required
 def validate_claims_upload(current_user):
@@ -330,28 +354,41 @@ def execute_claims_upload(current_user):
                     priority=claim_data["priority"],
                     amount=claim_data["amount"],
                     payer=claim_data["payer"],
-                    status='Assigned',  # Set the status upon successful assignment
-                    assigned_to_id=assignee.id
+                    status="Assigned",  # Set the status upon successful assignment
+                    assigned_to_id=assignee.id,
                 )
                 db.session.add(new_claim)
-        
+
         # Commit the transaction once all claims have been added
         db.session.commit()
 
     except Exception as e:
         db.session.rollback()
         # Provide a more specific error message for debugging
-        return jsonify({"message": f"An error occurred during database commit: {str(e)}"}), 500
+        return (
+            jsonify({"message": f"An error occurred during database commit: {str(e)}"}),
+            500,
+        )
 
-    return jsonify({"message": f"Successfully assigned and created {len(claims_to_create)} claims."}), 201
+    return (
+        jsonify(
+            {
+                "message": f"Successfully assigned and created {len(claims_to_create)} claims."
+            }
+        ),
+        201,
+    )
 
 
-# --- Member Routes ---
 @app.route("/api/member/claims", methods=["GET"])
 @token_required
 def get_member_claims(current_user):
-    # Members can log in to view the claims assigned to them
-    claims = Claim.query.filter_by(assigned_to_id=current_user.id).all()
+    claims = (
+        Claim.query.filter_by(assigned_to_id=current_user.id)
+        .order_by(Claim.status, Claim.claim_id)
+        .all()
+    )
+
     return jsonify(
         [
             {
@@ -359,29 +396,43 @@ def get_member_claims(current_user):
                 "claim_id": c.claim_id,
                 "patient_name": c.patient_name,
                 "payer": c.payer,
+                "amount": str(c.amount) if c.amount else None,
+                "dos": c.dos.strftime("%Y-%m-%d") if c.dos else None,
                 "status": c.status,
+                "notes": [
+                    {"content": note.content, "timestamp": note.timestamp.isoformat()}
+                    for note in c.notes
+                ],
             }
             for c in claims
         ]
     )
 
 
-@app.route("/api/member/claims/<uuid:claim_id>", methods=["PUT"])
+# Find the existing update_member_claim function and replace it with this version
+@app.route('/api/member/claims/<uuid:claim_id>', methods=['PUT'])
 @token_required
 def update_member_claim(current_user, claim_id):
-    # Members can update status... and add notes
     claim = db.session.get(Claim, claim_id)
     if not claim or claim.assigned_to_id != current_user.id:
-        return jsonify({"message": "Claim not found or not assigned to you"}), 404
-
+        return jsonify({'message': 'Claim not found or not assigned to you'}), 404
+    
     data = request.get_json()
-    if "status" in data:
-        claim.status = data["status"]
-    if "note" in data:
-        new_note = Note(
-            content=data["note"], claim_id=claim.id, user_id=current_user.id
-        )
-        db.session.add(new_note)
-
+    if 'status' in data:
+        claim.status = data['status']
+    
+    # NEW LOGIC: Update the most recent note, or create a new one
+    if 'note' in data:
+        # Find the most recent note for this claim
+        latest_note = Note.query.filter_by(claim_id=claim.id).order_by(Note.timestamp.desc()).first()
+        
+        if latest_note:
+            # If a note exists, update its content
+            latest_note.content = data['note']
+        else:
+            # If no note exists, create a new one
+            new_note = Note(content=data['note'], claim_id=claim.id, user_id=current_user.id)
+            db.session.add(new_note)
+            
     db.session.commit()
-    return jsonify({"message": "Claim updated."})
+    return jsonify({'message': 'Claim updated.'})
