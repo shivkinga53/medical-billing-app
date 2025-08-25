@@ -16,7 +16,7 @@ function App() {
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
                 <Route path="/admin" element={<PrivateRoute role="Admin"><AdminDashboard /></PrivateRoute>} />
-                <Route path="/member" element={<PrivateRoute role="Member"><MemberDashboard /></PrivateRoute>} />
+                <Route path="/member" element={<PrivateRoute ><MemberDashboard /></PrivateRoute>} />
                 <Route path="/" element={<Navigate to="/login" />} />
             </Routes>
         </Router>

@@ -17,11 +17,11 @@ const ClaimUpload = () => {
         formData.append('file', file);
 
         try {
-            // When Admin uploads file...auto assigns based on rules and max daily claims...then show the confirmation dialog
             const response = await api.post('/admin/claims/upload-validate', formData);
             setValidationResult(response.data);
         } catch (err) {
             setError(err.response?.data?.message || 'Validation failed.');
+            setValidationResult(err.response?.data || null);
         } finally {
             setIsLoading(false);
         }
@@ -30,9 +30,11 @@ const ClaimUpload = () => {
     const handleExecute = async () => {
         setIsLoading(true); setError('');
         try {
+            // FIX: The backend expects a key named 'assignable_claims'
             const response = await api.post('/admin/claims/upload-execute', {
-                claims: validationResult.assignable_claims
+                assignable_claims: validationResult.assignable_claims
             });
+            
             alert(response.data.message);
             setValidationResult(null); // Reset after execution
         } catch (err) {
@@ -58,13 +60,35 @@ const ClaimUpload = () => {
                         <div>
                             <p className="error">The following claims could not be assigned:</p>
                             <ul>
-                                {validationResult.unassignable_claims.map((c, i) => <li key={i}>{c.claim_id}: {c.reason}</li>)}
+                                {validationResult.unassignable_claims.map((c, i) => <li key={i}><b>{c.claim_id}:</b> {c.reason}</li>)}
                             </ul>
                         </div>
                     ) : (
                         <div>
-                            <p className="success">All {validationResult.assignable_claims?.length} claims can be assigned.</p>
-                            <button onClick={handleExecute} disabled={isLoading}>
+                            <p className="success">All {validationResult.assignable_claims?.length} claims can be assigned. Please review the plan below.</p>
+                            
+                            {/* --- NEW: Display the assignment plan in a table --- */}
+                            {/* This table serves as the "confirmation dialog" for the Admin */}
+                            <table style={{ marginTop: '15px' }}>
+                                <thead>
+                                    <tr>
+                                        <th>Claim ID</th>
+                                        <th>Will Be Assigned To</th>
+                                        <th>Assignment Strategy</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {validationResult.assignable_claims.map((c, i) => (
+                                        <tr key={i}>
+                                            <td>{c.claim_id}</td>
+                                            <td>{c.assign_to}</td>
+                                            <td>{c.strategy}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                            
+                            <button onClick={handleExecute} disabled={isLoading} style={{ marginTop: '15px' }}>
                                 {isLoading ? 'Assigning...' : 'Confirm & Execute Assignment'}
                             </button>
                         </div>

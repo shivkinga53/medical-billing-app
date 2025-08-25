@@ -7,6 +7,8 @@ const Navbar = () => {
 
     const handleLogout = () => {
         localStorage.clear();
+        console.log('User logged out.');
+        
         navigate('/login');
         window.location.reload(); // Force a reload to update state
     };

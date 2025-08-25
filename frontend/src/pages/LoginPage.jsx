@@ -13,8 +13,12 @@ const LoginPage = () => {
         e.preventDefault();
         try {
             const response = await api.post('/login', { username, password });
-            const { token } = response.data;
+            console.log(response.data);
+            
+            const { token, user } = response.data;
             const decoded = jwtDecode(token);
+            console.log({decoded});
+            
 
             localStorage.setItem('token', token);
             localStorage.setItem('role', decoded.role);
