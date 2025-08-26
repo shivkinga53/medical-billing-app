@@ -13,6 +13,26 @@ import os
 # --- Authentication ---
 @app.route("/api/register", methods=["POST"])
 def register():
+    """
+    Registers a new user.
+
+    Request Body:
+        {
+            "name": str,
+            "username": str,
+            "password": str
+        }
+
+    Returns:
+        {
+            "message": str
+        }
+
+    Status Codes:
+        201: User registered. Waiting for admin approval.
+        409: Username already exists
+    """
+
     data = request.get_json()
     if User.query.filter_by(username=data["username"]).first():
         return jsonify({"message": "Username already exists"}), 409
@@ -30,6 +50,28 @@ def register():
 
 @app.route("/api/login", methods=["POST"])
 def login():
+    """
+    Logs in a user.
+
+    Request Body:
+        {
+            "username": str,
+            "password": str
+        }
+
+    Returns:
+        {
+            "token": str (JSON Web Token),
+            "user": {
+                "name": str,
+                "role": str
+            }
+        }
+
+    Raises:
+        401: Invalid credentials
+        403: Account is not active
+    """
     data = request.get_json()
     user = User.query.filter_by(username=data["username"]).first()
     print(data)
@@ -58,6 +100,24 @@ def login():
 @app.route("/api/admin/users", methods=["GET"])
 @admin_required
 def get_users(current_user):
+    """
+    Returns a list of all non-admin users in the database.
+
+    Each user is represented as a JSON object with the following keys:
+
+    * id (string): The UUID of the user.
+    * name (string): The name of the user.
+    * username (string): The username of the user.
+    * role (string): The role of the user (Biller, Member, or Admin).
+    * is_active (bool): Whether the user is active or not.
+    * skills (list of strings): The skills of the user.
+    * max_daily_claims (int): The maximum number of claims the user can be assigned to in a day.
+    * seniority (int): The seniority of the user.
+    * assign_by (string): The assignment strategy for the user (payer or submitter).
+
+    :param current_user: The current user object, passed by the admin_required decorator.
+    :return: A JSON response containing the list of users.
+    """
     users = User.query.filter(User.role != "Admin").all()
     return jsonify(
         [
@@ -80,6 +140,21 @@ def get_users(current_user):
 @app.route("/api/admin/users/<uuid:user_id>", methods=["PUT"])
 @admin_required
 def update_user(current_user, user_id):
+    """
+    API endpoint to update an existing user.
+
+    The request body should contain the key-value pairs of the fields to be updated.
+    The fields to be updated can be any of the following:
+
+    * role (string): The new role for the user. Can be "Biller", "Admin", or "Member".
+    * max_daily_claims (int): The new maximum number of claims the user can be assigned to in a day.
+    * seniority (int): The new seniority of the user.
+    * is_active (bool): Whether the user should be active or not.
+    * assign_by (string): The new assignment strategy for the user. Can be "payer" or "submitter".
+    * skill_ids (list of uuid): The new skills for the user.
+
+    Returns a JSON response with a message indicating whether the update was successful or not.
+    """
     user = db.session.get(User, user_id)
     if not user:
         return jsonify({"message": "User not found"}), 404
@@ -101,6 +176,11 @@ def update_user(current_user, user_id):
 @app.route("/api/admin/skills", methods=["GET"])
 @admin_required
 def get_skills(current_user):
+    """
+    API endpoint to get all skills in the database.
+
+    Returns a JSON response containing a list of objects, each with an "id" and a "name" key.
+    """
     skills = Skill.query.all()
     return jsonify([{"id": str(s.id), "name": s.name} for s in skills])
 
@@ -109,6 +189,25 @@ def get_skills(current_user):
 @app.route("/api/admin/claims", methods=["GET"])
 @admin_required
 def get_all_claims(current_user):
+    """
+    API endpoint to get all claims in the database.
+
+    Returns a JSON list of objects with the following attributes:
+
+    - id: The ID of the claim (UUID)
+    - claim_id: The claim ID (string)
+    - patient_name: The patient name (string)
+    - payer: The payer name (string)
+    - amount: The amount (integer, or None if not applicable)
+    - dos: The date of service (string, or None if not applicable)
+    - status: The status of the claim (string)
+    - assignee: The name of the member assigned to the claim (string, or "Unassigned" if not assigned)
+
+    The list is sorted first by claim ID (newest first).
+
+    :return:
+        A JSON response containing a list of all claims in the database.
+    """
     claims = Claim.query.order_by(Claim.claim_id.desc()).all()
     return jsonify(
         [
@@ -132,6 +231,48 @@ def get_all_claims(current_user):
 @app.route("/api/admin/claims/upload-validate", methods=["POST"])
 @admin_required
 def validate_claims_upload(current_user):
+    """
+    Validate a claims file uploaded by an admin and propose a claim assignment plan.
+
+    The file is expected to be a CSV or Excel file with the following columns:
+    - claim_id
+    - patient_id
+    - patient_name
+    - payer
+    - cpt_codes
+    - icd10_codes
+    - amount
+    - dos
+    - submission_deadline
+    - status
+
+    The endpoint will validate the file and simulate the assignment of claims to members
+    based on the configuration of the members and the claims. The response will contain
+    a list of claims that can be assigned and a list of claims that cannot be assigned
+    with reasons why.
+
+    The assignment plan is determined by the following rules:
+    1. Assign by age: Assign claims to the oldest members first.
+    2. Assign by seniority: Assign claims to the most senior members first.
+    3. Assign by payer: Assign claims to members with the required skill set.
+
+    :return:
+        A JSON response with two keys: 'assignable_claims' and 'unassignable_claims'.
+        'assignable_claims' contains a list of dictionaries with the following keys:
+        - claim_id
+        - patient_name
+        - payer
+        - amount
+        - dos
+        - submission_deadline
+        - status
+        - assign_to (name of the user to assign the claim to)
+        - strategy (name of the assignment strategy used)
+
+        'unassignable_claims' contains a list of dictionaries with the following keys:
+        - claim_id
+        - reason (a string describing why the claim cannot be assigned)
+    """
     if "file" not in request.files:
         return jsonify({"message": "No file part"}), 400
     file = request.files["file"]
@@ -330,9 +471,36 @@ def assign_claim_to_group(claim_row, user_group, workload):
 @app.route("/api/admin/claims/upload-execute", methods=["POST"])
 @admin_required
 def execute_claims_upload(current_user):
+    """
+    Executes the assignment plan proposed during the validation step.
+
+    This endpoint expects a JSON payload with a key named 'assignable_claims' containing
+    an array of objects representing the claims to be assigned. Each object should contain
+    the following fields:
+
+    - claim_id
+    - patient_id
+    - patient_name
+    - cpt_codes
+    - icd10_codes
+    - dob
+    - dos
+    - submission_deadline
+    - priority
+    - amount
+    - payer
+    - assign_to (name of the user to assign the claim to)
+
+    The endpoint will create a new Claim object for each claim in the payload, assign the
+    claim to the specified user, and commit the transaction. If any error occurs during
+    the process, the transaction will be rolled back and a 500 error will be returned.
+
+    :return:
+        A JSON response with a message indicating the number of claims created and assigned.
+    """
     data = request.get_json()
     # To be consistent with the validation step, we expect a key named 'assignable_claims'
-    claims_to_create = data.get("claims")
+    claims_to_create = data.get("assignable_claims")
 
     if not claims_to_create:
         return jsonify({"message": "No claims provided to execute."}), 400
@@ -380,9 +548,27 @@ def execute_claims_upload(current_user):
     )
 
 
+# API endpoint to get member claims
 @app.route("/api/member/claims", methods=["GET"])
 @token_required
 def get_member_claims(current_user):
+    """
+    API endpoint to get the claims assigned to the current member.
+
+    Returns a JSON list of objects with the following attributes:
+
+    - id: The ID of the claim (UUID)
+    - claim_id: The claim ID (string)
+    - patient_name: The patient name (string)
+    - payer: The payer name (string)
+    - amount: The amount (integer, or None if not applicable)
+    - dos: The date of service (string, or None if not applicable)
+    - status: The status of the claim (string)
+    - notes: A list of notes, with each note containing a content string and a timestamp (ISO 8601 string)
+
+    The list is sorted first by status, then by claim ID.
+    """
+
     claims = (
         Claim.query.filter_by(assigned_to_id=current_user.id)
         .order_by(Claim.status, Claim.claim_id)
@@ -409,30 +595,47 @@ def get_member_claims(current_user):
     )
 
 
-# Find the existing update_member_claim function and replace it with this version
-@app.route('/api/member/claims/<uuid:claim_id>', methods=['PUT'])
+# API endpoint to update a claim
+@app.route("/api/member/claims/<uuid:claim_id>", methods=["PUT"])
 @token_required
 def update_member_claim(current_user, claim_id):
+    """
+    API endpoint to update a member claim.
+
+    Updates a claim's status and/or the most recent note for that claim.
+
+    Args:
+        claim_id (uuid): The ID of the claim to update.
+
+    Returns:
+        A JSON response containing a message indicating the result of the update.
+    """
     claim = db.session.get(Claim, claim_id)
     if not claim or claim.assigned_to_id != current_user.id:
-        return jsonify({'message': 'Claim not found or not assigned to you'}), 404
-    
+        return jsonify({"message": "Claim not found or not assigned to you"}), 404
+
     data = request.get_json()
-    if 'status' in data:
-        claim.status = data['status']
-    
+    if "status" in data:
+        claim.status = data["status"]
+
     # NEW LOGIC: Update the most recent note, or create a new one
-    if 'note' in data:
+    if "note" in data:
         # Find the most recent note for this claim
-        latest_note = Note.query.filter_by(claim_id=claim.id).order_by(Note.timestamp.desc()).first()
-        
+        latest_note = (
+            Note.query.filter_by(claim_id=claim.id)
+            .order_by(Note.timestamp.desc())
+            .first()
+        )
+
         if latest_note:
             # If a note exists, update its content
-            latest_note.content = data['note']
+            latest_note.content = data["note"]
         else:
             # If no note exists, create a new one
-            new_note = Note(content=data['note'], claim_id=claim.id, user_id=current_user.id)
+            new_note = Note(
+                content=data["note"], claim_id=claim.id, user_id=current_user.id
+            )
             db.session.add(new_note)
-            
+
     db.session.commit()
-    return jsonify({'message': 'Claim updated.'})
+    return jsonify({"message": "Claim updated."})
