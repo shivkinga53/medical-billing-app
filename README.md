@@ -1,22 +1,6 @@
 # Medical Billing - Claim Assignment Application
 
-This is a full‑stack web application designed to automate the assignment of medical billing claims to employees using a dynamic, multi‑strategy rule engine. It includes Admin and Member roles, a registration & approval workflow, and a two‑step upload/validation process for claim files.
-
----
-
-## Table of Contents
-
-* [Features](#features)
-
-  * [Admin Role](#admin-role)
-  * [Member Role](#member-role)
-* [Tech Stack](#tech-stack)
-* [Getting Started](#getting-started)
-
-  * [Prerequisites](#prerequisites)
-  * [Backend Setup](#backend-setup)
-  * [Frontend Setup](#frontend-setup)
-* [How to Use the Application](#how-to-use-the-application)
+This is a full-stack web application designed to automate the assignment of medical billing claims to employees based on a dynamic, multi-strategy rule engine. The application features distinct roles for Admins and Members, a user registration and approval workflow, and a robust process for validating and assigning claims from uploaded files.
 
 ---
 
@@ -24,19 +8,24 @@ This is a full‑stack web application designed to automate the assignment of me
 
 ### Admin Role
 
-* **User Management**: View all registered users, activate/deactivate accounts, and delete users.
-* **Employee Configuration**: Edit and assign `role`, `skills`, `max_daily_claims`, `seniority`, and the assignment strategy (`assign_by`) for each member.
-* **Two-Step Claim Assignment**:
+* **User Management:** View all registered users, activate/deactivate their accounts, and delete users.
 
-  1. **Upload & Validate**: Upload a `.xlsx` or `.csv` file containing claims. The system performs a dry run that validates data integrity and simulates assignment.
-  2. **Review & Execute**: Admins review a proposed assignment plan (which claims can be assigned and to whom). After confirmation, claims are created and assigned in the database.
-* **View All Claims**: Detailed list of every claim currently in the database.
+* **Employee Configuration:** Edit and assign `role`, `skills`, `max_daily_claims`, `seniority`, and the assignment strategy (`assign_by`) for each member.
+
+* **Two-Step Claim Assignment:**
+
+  * **Upload & Validate:** Upload a `.xlsx` or `.csv` file containing claims. The system performs a "dry run" validation, checking for data integrity and simulating the assignment process.
+  * **Review & Execute:** The admin is presented with a clear plan of which claims will be assigned to whom and which cannot. Upon confirmation, the claims are officially created and assigned in the database.
+
+* **View All Claims:** See a detailed list of every claim currently in the database.
 
 ### Member Role
 
-* **Account Registration**: New users can register and wait for admin approval.
-* **Personalized Dashboard**: Members see claims assigned specifically to them.
-* **Claim Management**: Update claim status and edit the most recent note via a two‑step confirmation flow.
+* **Account Registration:** New users can register for an account, which awaits admin approval.
+
+* **Personalized Dashboard:** View a list of all claims specifically assigned to them.
+
+* **Claim Management:** Update the status of a claim and edit the most recent note associated with it through a two-step confirmation process.
 
 ---
 
@@ -44,55 +33,57 @@ This is a full‑stack web application designed to automate the assignment of me
 
 * **Backend:** Python, Flask, SQLAlchemy, PostgreSQL
 * **Frontend:** React (Vite), JavaScript, Axios
-* **Core Libraries:** Pandas (file processing), Bcrypt (password hashing), PyJWT (authentication)
+* **Core Libraries:** Pandas (for file processing), Bcrypt (for password hashing), PyJWT (for authentication)
 
 ---
 
 ## 🚀 Getting Started
 
-Follow these instructions to set up and run the project locally.
+Follow these instructions to set up and run the project on your local machine.
 
 ### Prerequisites
 
-Make sure the following are installed:
+Make sure you have the following software installed:
 
-* Python (3.10+)
-* Node.js (18+)
+* Python (version 3.10 or newer)
+* Node.js (version 18 or newer)
 * PostgreSQL
-
----
 
 ### 1. Backend Setup
 
-Open a terminal for the backend and run the following:
+You will need one terminal window for the backend.
+
+**Navigate to the Backend Directory:**
 
 ```bash
-# navigate to backend
 cd path/to/your/project/backend
+```
 
-# Create the environment (only once)
+**Create and Activate a Virtual Environment:**
+
+```bash
+# Create the environment (only needs to be done once)
 python -m venv venv
 
 # Activate the environment
 # On Windows:
 .\venv\Scripts\activate
-# On macOS / Linux:
+# On Mac/Linux:
 source venv/bin/activate
+```
 
-# Install dependencies
+**Install Dependencies:**
+
+```bash
 pip install -r requirements.txt
 ```
 
-#### Set up the database
+**Set Up the Database:**
 
-1. Ensure PostgreSQL is running.
-2. Create a database, e.g.:
+* Make sure your PostgreSQL server is running.
+* Create a new database for the project (e.g., `CREATE DATABASE medicaldb;`).
 
-```sql
-CREATE DATABASE medicaldb;
-```
-
-3. Create a `.env` file in the `backend/` directory (copy and update values):
+Create a `.env` file in the `backend/` directory by copying the example below and adding your database credentials.
 
 ```env
 # backend/.env
@@ -103,76 +94,93 @@ ADMIN_USERNAME=admin-username
 ADMIN_PASSWORD=admin-password
 ```
 
-#### Initialize the database (one-time setup)
+**Initialize the Database (One-Time Setup):**
+
+Run these commands to create the database tables, the first admin user, and the initial skills.
 
 ```bash
-# Create DB tables, first admin user, and initial skills
 flask db_cli create-admin
 flask db_cli create-skills
 ```
 
-#### Start the backend server
+**Start the Backend Server:**
 
 ```bash
 flask run
 ```
 
-The backend API will be available at `http://localhost:5000`.
-
----
+Your backend API is now running at `http://localhost:5000`. Leave this terminal open.
 
 ### 2. Frontend Setup
 
-Open a second terminal for the frontend and run:
+You will need a second, separate terminal window for the frontend.
+
+**Navigate to the Frontend Directory:**
 
 ```bash
-# navigate to frontend
 cd path/to/your/project/frontend
+```
 
-# Install dependencies
+**Install Dependencies:**
+
+```bash
 npm install
+```
 
-# Start the dev server
+**Set Up Environment Variables:**
+
+Create a `.env` file in the `frontend/` directory. The project is already configured to connect to your backend server running on port 5000.
+
+```env
+# frontend/.env
+VITE_API_BASE_URL=http://localhost:5000/api
+```
+
+**Start the Frontend Server:**
+
+```bash
 npm run dev
 ```
 
-The frontend typically runs at `http://localhost:5173` (the terminal will print the exact URL).
-
-> The frontend is preconfigured to connect to the backend at port `5000`.
+Your frontend application is now running. The terminal will provide you with a local URL, typically `http://localhost:5173`.
 
 ---
 
 ## 📋 How to Use the Application
 
-1. **Open the app** in your browser (e.g., `http://localhost:5173`).
+1. **Open the App:** Open the frontend URL (e.g., `http://localhost:5173`) in your web browser.
 
-2. **Register a new Member**
+2. **Register a New Member:**
 
-   * Click **Register** and provide a name, username, and password. A success message will indicate the account is awaiting admin approval.
+   * Click the "Register" link.
+   * Fill in a name, username, and password to create a new member account. You will see a success message indicating the account is awaiting approval.
 
-3. **Log in as Admin**
+3. **Log in as Admin:**
 
-   * Go to the **Login** page.
-   * Default admin credentials (development):
+   * Navigate to the "Login" page.
+   * Use the following credentials:
 
-     * Username: `admin`
-     * Password: `password`
+```
+Username: admin
+Password: password
+```
 
-4. **Activate the new Member**
+4. **Activate the New Member:**
 
-   * In the Admin Dashboard, open **User Management**.
-   * Find the newly registered user (status: `Inactive`) and click **Activate**.
-   * Click **Edit** to assign a Role (e.g., `Biller`), select Skills, and set **Max Daily Claims**. Then **Save Changes**.
+   * On the Admin Dashboard, ensure you are on the "User Management" panel.
+   * Find the new user you just registered (their status will be "Inactive").
+   * Click the "Activate" button.
+   * Click the "Edit" button to open the modal. Assign a Role (e.g., "Biller"), select some Skills, and set their Max Daily Claims. Click "Save Changes".
 
-5. **Upload and Assign Claims**
+5. **Upload and Assign Claims:**
 
-   * Go to **Claim Upload**.
-   * Choose your `.xlsx` or `.csv` file and click **Validate File**. The app will show a proposed assignment plan.
-   * Review the plan and click **Confirm & Execute Assignment** to create and assign claims.
+   * Switch to the "Claim Upload" panel.
+   * Select your `.xlsx` or `.csv` file containing claims.
+   * Click "Validate File". The application will show you a plan of how the claims will be assigned.
+   * Review the plan and click "Confirm & Execute Assignment".
 
-6. **Log in as the Member**
+6. **Log in as a Member:**
 
-   * Log out of the Admin account and sign in with the activated member credentials.
-   * The Member Dashboard shows assigned claims; members can update statuses and notes as allowed.
-
----
+   * Log out of the Admin account.
+   * Log in with the credentials of the member you registered and activated.
+   * You will be taken to the Member Dashboard, where you can see and manage the claims that were just assigned to you.
