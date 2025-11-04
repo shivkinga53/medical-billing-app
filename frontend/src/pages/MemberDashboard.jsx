@@ -127,7 +127,7 @@ const MemberDashboard = () => {
 											handleInputChange(claim.id, "status", e.target.value)
 										}
 									>
-										<option value="Assigned">Assigned</option>
+										<option value="NEW">NEW</option>
 										<option value="In Progress">In Progress</option>
 										<option value="On Hold">On Hold</option>
 										<option value="Submitted">Submitted</option>
@@ -136,12 +136,22 @@ const MemberDashboard = () => {
 								<td>
 									<input
 										type="text"
-										placeholder="Edit note..."
+										placeholder="Add new note..."
 										value={claim.noteContent}
 										onChange={(e) =>
 											handleInputChange(claim.id, "noteContent", e.target.value)
 										}
 									/>
+									{/* Optional: Show all notes below for audit */}
+									{claim.notes && claim.notes.length > 0 && (
+										<ul style={{ fontSize: "0.8em", color: "gray" }}>
+											{claim.notes.map((n, i) => (
+												<li key={i}>
+													{n.content} ({n.timestamp})
+												</li>
+											))}
+										</ul>
+									)}
 								</td>
 								<td>
 									<button
